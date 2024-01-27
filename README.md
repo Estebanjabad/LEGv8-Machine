@@ -15,7 +15,7 @@
     |load0		|ADDI X14 XZR #0  |
 
 ### Status
-* Translate type (R, I, D, B, CB) instructions
+* Translates type (R, I, D, B, CB, IW/IM) instructions
 * Calculates the address offsets of CB and B instructions
 * Uses the *Two's Complement* for negative address offsets
 
@@ -23,5 +23,5 @@
 * OP2 bits in D-Type Instructions
 * Some Uncommon Instructions
 * Pseudo-Instructions
-* IW/IM Instructions
-* Comments
+* ~IW/IM Instructions~
+* ~Comments~
