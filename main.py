@@ -1,5 +1,6 @@
 from bitarray import bitarray
 from bitarray.util import int2ba
+from re import sub
 
 typeR = {"ADD", "SUB", "AND", "ORR", "EOR"}
 typeR2 = {"LSL", "LSR"}
@@ -7,6 +8,7 @@ typeI = {"ADDI", "SUBI", "ANDI", "ORRI", "EORI"}
 typeD = {"LDUR", "STUR"}
 typeB = {"B", "BL"}
 typeCB = {"CBZ", "CBNZ", "B.EQ", "B.NE", "B.LT", "B.LE", "B.GT", "B.GE"}
+typeIM = {"MOVZ", "MOVK"}
 
 inst = {
 	"ADD" : "10001011000",
@@ -29,7 +31,10 @@ inst = {
 
 	"CBZ" : "10110100",
 	"CBNZ" : "10110101",
-	"B." : "01010100"
+	"B." : "01010100",
+
+	"MOVZ" : "110100101",
+	"MOVK" : "111100101"
 }
 
 reg = {
@@ -59,6 +64,22 @@ for x,line in enumerate(entrada):
 		tags[line.split("	")[0]] = x
 
 entrada.seek(0)
+
+def clean(line):
+	
+	# Remove "//" and all text after it
+    line = sub(r'\s*//.*', '', line)
+
+    # Remove "[" and "]"
+    line = sub(r'[\[\]]', '', line)
+    
+    # Remove semicolons
+    line = line.replace(':', '	')
+
+	# Remove commas
+    line = line.replace(',', '')
+
+    return line
 	
 class Instruccion():
 	def __init__(self, line, pos):
@@ -66,9 +87,9 @@ class Instruccion():
 		self.s = line.split("	")[-1].split(" ")
 		self.pos = pos
 		self.normalize()
-		
 		self.type = self.setType()
 		self.opcode = self.setOPcode()
+		self.LSL = self.setLSL()
 		self.Rd = self.setRd()
 		self.Rn = self.setRn()
 		self.Rm = self.setRm()
@@ -94,10 +115,16 @@ class Instruccion():
 			return("B")
 		elif tmp in typeCB:
 			return("CB")
+		elif tmp in typeIM:
+			return("IM")
 	def setOPcode(self):
 		if self.type == "CB" and self.s[0][:2] == "B.":
-			return inst.get(self.s[0][:2])
+			return inst.get(self.s[0][:2]) 
 		return inst.get(self.s[0])
+	def setLSL(self):
+		if self.type == "IM":
+			return format(int(self.s[3][1:]), '02b')
+		return ""
 	def setRd(self):
 		if self.type == "CB" and self.s[0][2:] in cond:
 			return cond.get(self.s[0][2:])
@@ -124,7 +151,9 @@ class Instruccion():
 		elif self.type == "D":
 			add = int(self.s[-1][1:])
 			if add < 0:
-				tmp = (~ int2ba(-add, 9)) ^ int2ba(1, 9)
+				tmp = int((~ int2ba(-add, 9)).to01(), 2)
+				tmp = tmp + 1
+				tmp = int2ba(tmp, 9)
 			else:
 				tmp = int2ba(add, 9)
 			tmp = str(tmp)[10:-2]
@@ -137,13 +166,20 @@ class Instruccion():
 				size = 26		
 			jmp = tags[self.s[-1]] - self.pos
 			if jmp < 0:
-				tmp = (~ int2ba(-jmp, size)) ^ int2ba(1, size)
+				tmp = int((~ int2ba(-jmp, size)).to01(), 2)
+				tmp = tmp + 1
+				tmp = int2ba(tmp, size)
 			else:
 				tmp = int2ba(jmp, size)
 			tmp = str(tmp)[10:-2]
 
-
+		elif self.type == "IM":
+			size = 16
+			tpm = bitarray()
+			tmp = int2ba(int(self.s[2][1:]), size)
+			tmp = str(tmp)[10:-2]
 		return tmp
+	
 	def build(self):
 		a = ""
 		if self.type == "R" or self.type == "R2":
@@ -156,17 +192,14 @@ class Instruccion():
 			a = self.opcode + self.ShIn
 		elif self.type == "CB":
 			a = self.opcode + self.ShIn + self.Rd
+		elif self.type == "IM":
+			a= self.opcode + self.LSL + self.ShIn + self.Rd 
 		return(a)
 
 salida = open("output.txt", "w")
 for pos,line in enumerate(entrada):
-	salida.write(Instruccion(line, pos).machine + "\n")
+	line = clean(line)
+	if(len(line)>3):
+		salida.write("32'b" + Instruccion(line, pos).machine + ","+ "\n")
 salida.close()
 entrada.close()
-
-
-
-
-
-
-
